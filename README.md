@@ -1,3 +1,5 @@
+<img width="3765" height="1473" alt="Picture1" src="https://github.com/user-attachments/assets/14682078-6994-43b6-b642-25673097f967" />
+
 # PDF Renamer
 
 This Python script automatically renames scientific PDF files using bibliographic information extracted from the document.
