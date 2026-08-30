@@ -20,7 +20,7 @@ This scientific article https://doi.org/10.1177/2472555218803064 will download a
 
 The script renames it to "(Colin et al 2019) High-Throughput DNA Plasmid Transfection Using Acoustic Droplet Ejection Technology"
 
-**How to Use**
+# How to Use
 Place the script in a folder containing academic PDFs.
 Run the script.
 Shell
