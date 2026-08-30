@@ -19,3 +19,20 @@ PDFs are processed automatically from the folder containing the script. Requires
 This scientific article https://doi.org/10.1177/2472555218803064 will download a pdf "PIIS2472555222126262.pdf"
 
 The script renames it to "(Colin et al 2019) High-Throughput DNA Plasmid Transfection Using Acoustic Droplet Ejection Technology"
+
+**How to Use**
+Place the script in a folder containing academic PDFs.
+Run the script.
+Shell
+1
+python pdf_renamer.py
+Show more lines
+
+The script will:
+
+Extract article metadata
+Validate DOI information through CrossRef
+Detect titles, authors, and years
+Rename files automatically
+
+Diagnostic information is printed to the console for every processed PDF.
