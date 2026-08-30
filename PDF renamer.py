@@ -1,4 +1,6 @@
-# v260829
+# v260830
+# Removed review detection and suffixing, as it was causing issues with some journals and is not essential for the renaming process.
+# Also added some additional journal terms to the detection list.
 import os
 import re
 import difflib
@@ -463,13 +465,24 @@ JOURNAL_TERMS = [
     'royal society',
     'academic press',
     'bmc',
+    'biomed central',
+    'bentham',
     'journal of',
     'proceedings of',
     'annals of',
     'letters in',
     'reviews in',
     'current opinion in',
-    'scientific reports'
+    'scientific reports',
+    'communications biology',
+    'communications chemistry',
+    'communications medicine',
+    'international journal of',
+    'european journal of',
+    'american journal of',
+    'british journal of',
+    'transactions of',
+'advances in'
 ]
 
 
@@ -2276,80 +2289,6 @@ def choose_year(
         best_years
     )
 
-
-# ============================================================
-# REVIEW DETECTION
-# ============================================================
-
-def is_review(
-    title,
-    first_page_text,
-    crossref_data
-):
-
-    evidence = 0
-
-    if title:
-
-        if re.search(
-            r'\bsystematic review\b',
-            title,
-            re.IGNORECASE
-        ):
-            evidence += 3
-
-        elif re.search(
-            r'\bmeta[- ]analysis\b',
-            title,
-            re.IGNORECASE
-        ):
-            evidence += 3
-
-        elif re.search(
-            r'\breview article\b',
-            title,
-            re.IGNORECASE
-        ):
-            evidence += 3
-
-        elif re.search(
-            r'\bnarrative review\b',
-            title,
-            re.IGNORECASE
-        ):
-            evidence += 3
-
-        elif re.search(
-            r'\breview\b',
-            title,
-            re.IGNORECASE
-        ):
-            evidence += 2
-
-    if first_page_text:
-
-        if re.search(
-            r'article type\s*[:\-]?\s*review',
-            first_page_text,
-            re.IGNORECASE
-        ):
-            evidence += 3
-
-    if crossref_data:
-
-        subtype = str(
-            crossref_data.get(
-                'subtype',
-                ''
-            )
-        ).lower()
-
-        if 'review' in subtype:
-            evidence += 3
-
-    return evidence >= 3
-
-
 # ============================================================
 # DIAGNOSTICS
 # ============================================================
@@ -2744,16 +2683,7 @@ def process_pdfs():
                 metadata_year
             )
 
-        # ----------------------------------------------------
-        # REVIEW
-        # ----------------------------------------------------
-
-        review = is_review(
-            final_title,
-            first_page_text,
-            crossref_data
-        )
-
+        
         # ----------------------------------------------------
         # CLEAN TITLE
         # ----------------------------------------------------
@@ -2762,10 +2692,7 @@ def process_pdfs():
             final_title
         )
 
-        # NOTE:
-        # No "rev" suffix is added to review articles.
-        # ----------------------------------------------------
-
+       
         # ----------------------------------------------------
         # YEAR FALLBACK
         # ----------------------------------------------------
@@ -2816,11 +2743,6 @@ def process_pdfs():
 
         print(
             f"    Year: {final_year}"
-        )
-
-        print(
-            f"    Review: "
-            f"{'YES' if review else 'NO'}"
         )
 
         print(
