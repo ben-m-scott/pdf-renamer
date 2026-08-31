@@ -1892,15 +1892,15 @@ def author_agreement(
         return 0
 
     local_names = [
-        last_name(a).lower()
+        surname.lower()
         for a in local_authors
-        if last_name(a)
+        if (surname := last_name(a))
     ]
 
     cross_names = [
-        last_name(a).lower()
+        surname.lower()
         for a in crossref_list
-        if last_name(a)
+        if (surname := last_name(a))
     ]
 
     if not local_names:

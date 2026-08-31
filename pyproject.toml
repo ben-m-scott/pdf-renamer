@@ -21,3 +21,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 py-modules = ["pdf_renamer"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
