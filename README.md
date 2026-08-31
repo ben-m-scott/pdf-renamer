@@ -128,11 +128,11 @@ The script will:
 
 ## Version v260830.1
 
-- Installable as a standalone tool via uv (`uv tool install`); no Python setup or conda environment needed.
-- New `pdf_renamer` command available from any folder — the script no longer has to sit next to your PDFs.
-- Accepts specific files or globs (`pdf_renamer *.pdf`); with no arguments it processes every PDF in the current folder.
-- Dependencies are installed automatically into an isolated environment.
-- Script renamed from `PDF renamer.py` to `pdf_renamer.py`.
+- You can install the tool as a standalone package with uv (`uv tool install`). You do not need Python or a conda environment.
+- The new `pdf_renamer` command operates in all folders. The script does not have to stay in the same folder as your PDF files.
+- The command accepts file names and wildcards (`pdf_renamer *.pdf`). If you do not give an argument, the command processes all the PDF files in the current folder.
+- uv installs the dependencies automatically in an isolated environment.
+- The script name changed from `PDF renamer.py` to `pdf_renamer.py`.
 
 ## Version v260830
 
