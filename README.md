@@ -83,7 +83,7 @@ uv --version
 ### 2. Install the tool
 
 ```bash
-uv tool install /path/to/pdf-renamer
+uv tool install git+https://github.com/mhbsiam/pdf-renamer.git
 ```
 
 uv installs the tool and all dependencies into their own isolated environment — no conda environment, virtualenv, or pip required, and nothing touches your system Python. After installation, the `pdf_renamer` command is available from any folder.
@@ -97,7 +97,7 @@ uv tool upgrade pdf-renamer
 Or run it once without installing anything, from any folder:
 
 ```bash
-uvx --from /path/to/pdf-renamer pdf_renamer
+uvx --from git+https://github.com/mhbsiam/pdf-renamer pdf_renamer
 ```
 
 ## How to Use
