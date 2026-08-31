@@ -86,7 +86,7 @@ uv --version
 uv tool install git+https://github.com/mhbsiam/pdf-renamer.git
 ```
 
-uv installs the tool and all dependencies into their own isolated environment — no conda environment, virtualenv, or pip required, and nothing touches your system Python. After installation, the `pdf_renamer` command is available from any folder.
+uv installs the tool and all its dependencies in their own isolated environment. You do not need a conda environment, a virtualenv, or pip, and nothing touches your system Python. After installation, the `pdf_renamer` command is available in all folders.
 
 To upgrade later after changes to the script:
 
@@ -144,7 +144,7 @@ The script will:
 
 ## Requirements
 
-- uv (see Installation — uv also manages the Python interpreter automatically, so you do not need Python preinstalled)
+- uv (see Installation. uv also manages the Python interpreter automatically, so you do not need Python preinstalled)
 - An internet connection for CrossRef validation
 
 ## Notes
