@@ -54,13 +54,47 @@ The script renames it to:
 
 ## Installation
 
-Install the tool with [uv](https://docs.astral.sh/uv/) (installs all dependencies into its own environment):
+### 1. Install uv (one time)
+
+[uv](https://docs.astral.sh/uv/) is a small, fast Python tool manager. If you don't already have it, pick your platform:
+
+**macOS or Linux** (terminal):
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+or on macOS via Homebrew: `brew install uv`
+
+**Windows** (PowerShell):
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+or via winget: `winget install --id=astral-sh.uv`
+
+Then restart your terminal and check that it works:
+
+```bash
+uv --version
+```
+
+### 2. Install the tool
 
 ```bash
 uv tool install /path/to/pdf-renamer
 ```
 
-Or run it once without installing, from any folder:
+uv installs the tool and all dependencies into their own isolated environment — no conda environment, virtualenv, or pip required, and nothing touches your system Python. After installation, the `pdf_renamer` command is available from any folder.
+
+To upgrade later after changes to the script:
+
+```bash
+uv tool upgrade pdf-renamer
+```
+
+Or run it once without installing anything, from any folder:
 
 ```bash
 uvx --from /path/to/pdf-renamer pdf_renamer
@@ -102,8 +136,8 @@ The script will:
 
 ## Requirements
 
-- Python 3.9 or newer
-- requests, pdfplumber, PyPDF2 (installed automatically by uv)
+- uv (see Installation — uv also manages the Python interpreter automatically, so you do not need Python preinstalled)
+- An internet connection for CrossRef validation
 
 ## Notes
 
