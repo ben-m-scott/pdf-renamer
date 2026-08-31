@@ -1,6 +1,6 @@
 [project]
 name = "pdf-renamer"
-version = "2608.30"
+version = "2608.30.1"
 description = "Automatically rename scientific PDF files using bibliographic information extracted from the document."
 readme = "README.md"
 license = "MIT"

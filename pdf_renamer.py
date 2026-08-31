@@ -1,3 +1,5 @@
+# v260830.1
+# Installable via uv tool; runs as `pdf_renamer` from any folder.
 # v260830
 # Removed review detection and suffixing, as it was causing issues with some journals and is not essential for the renaming process.
 # Also added some additional journal terms to the detection list.

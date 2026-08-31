@@ -126,6 +126,14 @@ The script will:
 - Automatically rename files
 - Print detailed diagnostics for every processed document
 
+## Version v260830.1
+
+- Installable as a standalone tool via uv (`uv tool install`); no Python setup or conda environment needed.
+- New `pdf_renamer` command available from any folder — the script no longer has to sit next to your PDFs.
+- Accepts specific files or globs (`pdf_renamer *.pdf`); with no arguments it processes every PDF in the current folder.
+- Dependencies are installed automatically into an isolated environment.
+- Script renamed from `PDF renamer.py` to `pdf_renamer.py`.
+
 ## Version v260830
 
 - Removed review-article detection and filename suffixing.

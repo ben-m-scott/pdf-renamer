@@ -354,7 +354,7 @@ wheels = [
 
 [[package]]
 name = "pdf-renamer"
-version = "2608.30"
+version = "2608.30.1"
 source = { editable = "." }
 dependencies = [
     { name = "pdfplumber" },
