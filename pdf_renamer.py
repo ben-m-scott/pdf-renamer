@@ -3,6 +3,8 @@
 # Also added some additional journal terms to the detection list.
 import os
 import re
+import sys
+import glob
 import difflib
 import requests
 import pdfplumber
@@ -14,9 +16,6 @@ from PyPDF2 import PdfReader
 # ============================================================
 # CONFIGURATION
 # ============================================================
-
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-os.chdir(SCRIPT_DIR)
 
 CURRENT_YEAR = datetime.now().year
 
@@ -2362,13 +2361,40 @@ def print_author_diagnostics(
 # MAIN PROCESSING
 # ============================================================
 
-def process_pdfs():
+def collect_pdf_files(args):
+    """Resolve command-line arguments into a list of PDF files.
 
-    pdf_files = [
-        f
-        for f in os.listdir('.')
-        if f.lower().endswith('.pdf')
-    ]
+    Accepts explicit filenames (typically shell-expanded globs such
+    as `pdf_renamer *.pdf`), unexpanded glob patterns, or nothing at
+    all (in which case every PDF in the current folder is selected).
+    """
+
+    files = []
+
+    for arg in args:
+
+        if any(c in arg for c in '*?['):
+            files.extend(glob.glob(arg))
+        else:
+            files.append(arg)
+
+    if not files:
+        files = glob.glob('*.pdf')
+
+    # Deduplicate, keep order, keep PDFs only.
+    seen = set()
+    pdf_files = []
+
+    for f in files:
+
+        if f not in seen and f.lower().endswith('.pdf'):
+            seen.add(f)
+            pdf_files.append(f)
+
+    return pdf_files
+
+
+def process_pdfs(pdf_files):
 
     if not pdf_files:
 
@@ -2797,6 +2823,15 @@ def process_pdfs():
 # RUN
 # ============================================================
 
+def main():
+
+    process_pdfs(
+        collect_pdf_files(
+            sys.argv[1:]
+        )
+    )
+
+
 if __name__ == "__main__":
 
-    process_pdfs()
+    main()

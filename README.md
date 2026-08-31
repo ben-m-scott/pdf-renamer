@@ -8,7 +8,7 @@ It identifies article titles, authors, publication years, and DOIs from PDF cont
 
 The script specifically detects and handles bioRxiv preprints, preventing licensing text, copyright notices, journal headers, and other publisher metadata from being mistaken for article titles. For bioRxiv documents, filenames are labeled with **PREPRINT** instead of a publication year.
 
-PDFs are processed automatically from the folder containing the script, with detailed diagnostic output showing how titles, authors, years, and DOI metadata were selected.
+PDFs are processed automatically with detailed diagnostic output showing how titles, authors, years, and DOI metadata were selected.
 
 ## Filename Format
 
@@ -54,21 +54,33 @@ The script renames it to:
 
 ## Installation
 
-Install the required Python packages:
+Install the tool with [uv](https://docs.astral.sh/uv/) (installs all dependencies into its own environment):
 
 ```bash
-pip install requests pdfplumber PyPDF2
+uv tool install /path/to/pdf-renamer
+```
+
+Or run it once without installing, from any folder:
+
+```bash
+uvx --from /path/to/pdf-renamer pdf_renamer
 ```
 
 ## How to Use
 
-1. Place the script in a folder containing the PDF files you want to rename.
-2. Open a terminal in that folder.
-3. Run:
+Open a terminal in the folder containing the PDF files you want to rename, then run:
 
 ```bash
-python pdf_renamer.py
+pdf_renamer *.pdf
 ```
+
+or simply:
+
+```bash
+pdf_renamer
+```
+
+With no arguments, every PDF in the current folder is processed. You can also pass individual files.
 
 The script will:
 
@@ -90,10 +102,8 @@ The script will:
 
 ## Requirements
 
-- Python 3.x
-- requests
-- pdfplumber
-- PyPDF2
+- Python 3.9 or newer
+- requests, pdfplumber, PyPDF2 (installed automatically by uv)
 
 ## Notes
 
