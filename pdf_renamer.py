@@ -1,17 +1,16 @@
 # v260830
 # Removed review detection and suffixing, as it was causing issues with some journals and is not essential for the renaming process.
 # Also added some additional journal terms to the detection list.
+import difflib
+import glob
 import os
 import re
 import sys
-import glob
-import difflib
-import requests
-import pdfplumber
-
 from datetime import datetime
-from PyPDF2 import PdfReader
 
+import pdfplumber
+import requests
+from PyPDF2 import PdfReader
 
 # ============================================================
 # CONFIGURATION
@@ -739,9 +738,7 @@ SCIENTIFIC_TERMS = {
     'variants',
     'genetic',
     'genetics',
-    'expression',
     'cultivation',
-    'characterization',
     'activity',
     'binding',
     'structure',
@@ -754,8 +751,6 @@ SCIENTIFIC_TERMS = {
     'synthetic',
     'metabolite',
     'metabolites',
-    'biosynthesis',
-    'biological',
     'molecular',
     'cellular',
     'organism',
@@ -2435,7 +2430,7 @@ def process_pdfs(pdf_files):
         # FIRST PAGE
         # ----------------------------------------------------
 
-        words, page = extract_first_page(
+        words, _ = extract_first_page(
             filename
         )
 
@@ -2540,7 +2535,7 @@ def process_pdfs(pdf_files):
         if cr_title:
 
             print(
-                f"\n  CROSSREF TITLE:"
+                "\n  CROSSREF TITLE:"
             )
 
             print(
