@@ -10,48 +10,6 @@ The script specifically detects and handles bioRxiv preprints, preventing licens
 
 PDFs are processed automatically with detailed diagnostic output showing how titles, authors, years, and DOI metadata were selected.
 
-## Filename Format
-
-Standard publications:
-
-```text
-(Author Year) Title.pdf
-```
-
-Examples:
-
-```text
-(Smith 2023) Engineering Yeast for Sustainable Production.pdf
-(Smith and Jones 2021) Genome Analysis of Marine Bacteria.pdf
-(Smith et al 2024) High-Throughput Screening of Novel Enzymes.pdf
-```
-
-bioRxiv preprints:
-
-```text
-(Smith et al PREPRINT) Discovery of Novel Plastic-Degrading Enzymes.pdf
-```
-
-More than two authors are automatically shortened to **et al**.
-
-## Example
-
-This scientific article:
-
-https://doi.org/10.1177/2472555218803064
-
-may download as:
-
-```text
-PIIS2472555222126262.pdf
-```
-
-The script renames it to:
-
-```text
-(Colin et al 2019) High-Throughput DNA Plasmid Transfection Using Acoustic Droplet Ejection Technology.pdf
-```
-
 ## Installation
 
 ### 1. Install uv (one time)
@@ -125,6 +83,48 @@ The script will:
 - Detect bioRxiv preprints
 - Automatically rename files
 - Print detailed diagnostics for every processed document
+
+## Filename Format
+
+Standard publications:
+
+```text
+(Author Year) Title.pdf
+```
+
+Examples:
+
+```text
+(Smith 2023) Engineering Yeast for Sustainable Production.pdf
+(Smith and Jones 2021) Genome Analysis of Marine Bacteria.pdf
+(Smith et al 2024) High-Throughput Screening of Novel Enzymes.pdf
+```
+
+bioRxiv preprints:
+
+```text
+(Smith et al PREPRINT) Discovery of Novel Plastic-Degrading Enzymes.pdf
+```
+
+More than two authors are automatically shortened to **et al**.
+
+## Example
+
+This scientific article:
+
+https://doi.org/10.1177/2472555218803064
+
+may download as:
+
+```text
+PIIS2472555222126262.pdf
+```
+
+The script renames it to:
+
+```text
+(Colin et al 2019) High-Throughput DNA Plasmid Transfection Using Acoustic Droplet Ejection Technology.pdf
+```
 
 ## Version v260830.1
 
