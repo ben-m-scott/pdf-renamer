@@ -8,7 +8,81 @@ It identifies article titles, authors, publication years, and DOIs from PDF cont
 
 The script specifically detects and handles bioRxiv preprints, preventing licensing text, copyright notices, journal headers, and other publisher metadata from being mistaken for article titles. For bioRxiv documents, filenames are labeled with **PREPRINT** instead of a publication year.
 
-PDFs are processed automatically from the folder containing the script, with detailed diagnostic output showing how titles, authors, years, and DOI metadata were selected.
+PDFs are processed automatically with detailed diagnostic output showing how titles, authors, years, and DOI metadata were selected.
+
+## Installation
+
+### 1. Install uv (one time)
+
+[uv](https://docs.astral.sh/uv/) is a small, fast Python tool manager. If you don't already have it, pick your platform:
+
+**macOS or Linux** (terminal):
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+or on macOS via Homebrew: `brew install uv`
+
+**Windows** (PowerShell):
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+or via winget: `winget install --id=astral-sh.uv`
+
+Then restart your terminal and check that it works:
+
+```bash
+uv --version
+```
+
+### 2. Install the tool
+
+```bash
+uv tool install git+https://github.com/mhbsiam/pdf-renamer.git
+```
+
+uv installs the tool and all its dependencies in their own isolated environment. You do not need a conda environment, a virtualenv, or pip, and nothing touches your system Python. After installation, the `pdf_renamer` command is available in all folders.
+
+To upgrade later after changes to the script:
+
+```bash
+uv tool upgrade pdf-renamer
+```
+
+Or run it once without installing anything, from any folder:
+
+```bash
+uvx --from git+https://github.com/mhbsiam/pdf-renamer pdf_renamer
+```
+
+## How to Use
+
+Open a terminal in the folder containing the PDF files you want to rename, then run:
+
+```bash
+pdf_renamer *.pdf
+```
+
+or simply:
+
+```bash
+pdf_renamer
+```
+
+With no arguments, every PDF in the current folder is processed. You can also pass individual files.
+
+The script will:
+
+- Extract article metadata from each PDF
+- Detect and validate DOIs
+- Query CrossRef when DOI metadata is available
+- Identify the most likely title, author(s), and publication year
+- Detect bioRxiv preprints
+- Automatically rename files
+- Print detailed diagnostics for every processed document
 
 ## Filename Format
 
@@ -52,33 +126,13 @@ The script renames it to:
 (Colin et al 2019) High-Throughput DNA Plasmid Transfection Using Acoustic Droplet Ejection Technology.pdf
 ```
 
-## Installation
+## Version v260830.1
 
-Install the required Python packages:
-
-```bash
-pip install requests pdfplumber PyPDF2
-```
-
-## How to Use
-
-1. Place the script in a folder containing the PDF files you want to rename.
-2. Open a terminal in that folder.
-3. Run:
-
-```bash
-python pdf_renamer.py
-```
-
-The script will:
-
-- Extract article metadata from each PDF
-- Detect and validate DOIs
-- Query CrossRef when DOI metadata is available
-- Identify the most likely title, author(s), and publication year
-- Detect bioRxiv preprints
-- Automatically rename files
-- Print detailed diagnostics for every processed document
+- You can install the tool as a standalone package with uv (`uv tool install`). You do not need Python or a conda environment.
+- The new `pdf_renamer` command operates in all folders. The script does not have to stay in the same folder as your PDF files.
+- The command accepts file names and wildcards (`pdf_renamer *.pdf`). If you do not give an argument, the command processes all the PDF files in the current folder.
+- uv installs the dependencies automatically in an isolated environment.
+- The script name changed from `PDF renamer.py` to `pdf_renamer.py`.
 
 ## Version v260830
 
@@ -90,10 +144,8 @@ The script will:
 
 ## Requirements
 
-- Python 3.x
-- requests
-- pdfplumber
-- PyPDF2
+- uv (see Installation. uv also manages the Python interpreter automatically, so you do not need Python preinstalled)
+- An internet connection for CrossRef validation
 
 ## Notes
 

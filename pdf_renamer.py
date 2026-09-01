@@ -1,22 +1,22 @@
+# v260830.1
+# Installable via uv tool; runs as `pdf_renamer` from any folder.
 # v260830
 # Removed review detection and suffixing, as it was causing issues with some journals and is not essential for the renaming process.
 # Also added some additional journal terms to the detection list.
+import difflib
+import glob
 import os
 import re
-import difflib
-import requests
-import pdfplumber
-
+import sys
 from datetime import datetime
-from PyPDF2 import PdfReader
 
+import pdfplumber
+import requests
+from PyPDF2 import PdfReader
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
-
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-os.chdir(SCRIPT_DIR)
 
 CURRENT_YEAR = datetime.now().year
 
@@ -740,9 +740,7 @@ SCIENTIFIC_TERMS = {
     'variants',
     'genetic',
     'genetics',
-    'expression',
     'cultivation',
-    'characterization',
     'activity',
     'binding',
     'structure',
@@ -755,8 +753,6 @@ SCIENTIFIC_TERMS = {
     'synthetic',
     'metabolite',
     'metabolites',
-    'biosynthesis',
-    'biological',
     'molecular',
     'cellular',
     'organism',
@@ -1893,15 +1889,15 @@ def author_agreement(
         return 0
 
     local_names = [
-        last_name(a).lower()
+        surname.lower()
         for a in local_authors
-        if last_name(a)
+        if (surname := last_name(a))
     ]
 
     cross_names = [
-        last_name(a).lower()
+        surname.lower()
         for a in crossref_list
-        if last_name(a)
+        if (surname := last_name(a))
     ]
 
     if not local_names:
@@ -2362,13 +2358,40 @@ def print_author_diagnostics(
 # MAIN PROCESSING
 # ============================================================
 
-def process_pdfs():
+def collect_pdf_files(args):
+    """Resolve command-line arguments into a list of PDF files.
 
-    pdf_files = [
-        f
-        for f in os.listdir('.')
-        if f.lower().endswith('.pdf')
-    ]
+    Accepts explicit filenames (typically shell-expanded globs such
+    as `pdf_renamer *.pdf`), unexpanded glob patterns, or nothing at
+    all (in which case every PDF in the current folder is selected).
+    """
+
+    files = []
+
+    for arg in args:
+
+        if any(c in arg for c in '*?['):
+            files.extend(glob.glob(arg))
+        else:
+            files.append(arg)
+
+    if not files:
+        files = glob.glob('*.pdf')
+
+    # Deduplicate, keep order, keep PDFs only.
+    seen = set()
+    pdf_files = []
+
+    for f in files:
+
+        if f not in seen and f.lower().endswith('.pdf'):
+            seen.add(f)
+            pdf_files.append(f)
+
+    return pdf_files
+
+
+def process_pdfs(pdf_files):
 
     if not pdf_files:
 
@@ -2409,7 +2432,7 @@ def process_pdfs():
         # FIRST PAGE
         # ----------------------------------------------------
 
-        words, page = extract_first_page(
+        words, _ = extract_first_page(
             filename
         )
 
@@ -2514,7 +2537,7 @@ def process_pdfs():
         if cr_title:
 
             print(
-                f"\n  CROSSREF TITLE:"
+                "\n  CROSSREF TITLE:"
             )
 
             print(
@@ -2797,6 +2820,15 @@ def process_pdfs():
 # RUN
 # ============================================================
 
+def main():
+
+    process_pdfs(
+        collect_pdf_files(
+            sys.argv[1:]
+        )
+    )
+
+
 if __name__ == "__main__":
 
-    process_pdfs()
+    main()
