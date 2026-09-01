@@ -1,22 +1,22 @@
+# v260830.1
+# Installable via uv tool; runs as `pdf_renamer` from any folder.
 # v260830
 # Removed review detection and suffixing, as it was causing issues with some journals and is not essential for the renaming process.
 # Also added some additional journal terms to the detection list.
+import difflib
+import glob
 import os
 import re
-import difflib
-import requests
-import pdfplumber
-
+import sys
 from datetime import datetime
-from PyPDF2 import PdfReader
 
+import pdfplumber
+import requests
+from PyPDF2 import PdfReader
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
-
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-os.chdir(SCRIPT_DIR)
 
 CURRENT_YEAR = datetime.now().year
 
@@ -37,6 +37,25 @@ TITLE_LINE_DISTANCE = 28
 # to be considered part of the same title.
 TITLE_FONT_SIZE_TOLERANCE = 1.5
 
+# Maximum number of lines merged into one title. Real titles
+# often wrap over three or four printed lines.
+MAX_TITLE_LINES = 4
+
+# Minimum font size for a line to count as large print. Large
+# print lines are allowed to be title fragments; body text is not.
+STRONG_TITLE_FONT_SIZE = 12
+
+# Maximum length of the title part of the filename. Keeps the full
+# filename inside the 255-character component limit on Windows and
+# macOS, with headroom for the folder path.
+MAX_TITLE_CHARS = 150
+
+PDF_EXTENSIONS = {'.pdf'}
+
+# Upper bound on the numeric suffix appended when a target
+# filename is already taken.
+MAX_NAME_SUFFIX = 999
+
 
 # ============================================================
 # GENERAL UTILITIES
@@ -47,10 +66,30 @@ def clean_filename(text):
     if not text:
         return ""
 
-    text = re.sub(r'[<>:"/\\|?*]', '', text)
+    text = re.sub(r'[<>:"/\\|?*]', ' ', text)
     text = re.sub(r'\s+', ' ', text)
 
-    return text.strip().rstrip('.')
+    # Superscript signs detach from their words in PDF layout
+    # ('Gzmk⁺' becomes '⁺ A feed-forward ... Gzmk CD8').
+    text = text.replace('⁺', '+').replace('⁻', '-')
+
+    return text.strip().strip('+-').strip().rstrip('.')
+
+
+def truncate_title(text):
+
+    if not text:
+        return ""
+
+    if len(text) <= MAX_TITLE_CHARS:
+        return text
+
+    cut = text[:MAX_TITLE_CHARS]
+
+    if ' ' in cut:
+        cut = cut.rsplit(' ', 1)[0]
+
+    return cut.rstrip(' ,;:-')
 
 
 def normalize_text(text):
@@ -75,6 +114,25 @@ def normalize_text(text):
     text = re.sub(r'[^\w\s]', '', text)
 
     return text.strip()
+
+
+def stripped_marker_text(text):
+
+    if not text:
+        return ""
+
+    return normalize_text(text).replace('+', '').replace(' ', '')
+
+
+def differs_only_by_marker_punctuation(a, b):
+
+    if not a or not b:
+        return False
+
+    return (
+        stripped_marker_text(a)
+        == stripped_marker_text(b)
+    )
 
 
 def similarity(a, b):
@@ -138,8 +196,12 @@ def extract_metadata(pdf_path):
 
         meta = reader.metadata or {}
 
-        title = meta.get('/Title')
-        author = meta.get('/Author')
+        title = clean_pdf_metadata_value(
+            meta.get('/Title')
+        )
+        author = clean_pdf_metadata_value(
+            meta.get('/Author')
+        )
 
         year = None
 
@@ -163,6 +225,25 @@ def extract_metadata(pdf_path):
     except Exception:
 
         return None, None, None
+
+
+def clean_pdf_metadata_value(value):
+
+    if value is None:
+        return None
+
+    if isinstance(value, bytes):
+        try:
+            value = value.decode(
+                'utf-8',
+                errors='replace'
+            )
+        except Exception:
+            return None
+
+    text = str(value).strip()
+
+    return text or None
 
 
 # ============================================================
@@ -445,28 +526,14 @@ def is_biorxiv_header_or_license(text):
 # JOURNAL / PUBLISHER DETECTION
 # ============================================================
 
-JOURNAL_TERMS = [
+# Multi-word phrases are specific, so substring matching is safe.
+JOURNAL_PHRASES = [
 
-    'nature',
-    'science',
-    'cell',
-    'plos',
-    'elsevier',
-    'springer',
-    'wiley',
-    'frontiers',
-    'mdpi',
-    'oxford',
-    'cambridge',
     'taylor & francis',
-    'sage',
-    'acs',
     'american chemical society',
     'royal society',
     'academic press',
-    'bmc',
     'biomed central',
-    'bentham',
     'journal of',
     'proceedings of',
     'annals of',
@@ -482,7 +549,28 @@ JOURNAL_TERMS = [
     'american journal of',
     'british journal of',
     'transactions of',
-'advances in'
+    'advances in'
+]
+
+# Single words are only matched with word boundaries. Without
+# them, 'cell' matches 'cells', 'sage' matches 'dosage', and
+# 'acs' matches 'surfaces'.
+#
+# Generic words are not in this list: nature, science, cell,
+# oxford, cambridge, sage, and acs. They also appear inside
+# genuine titles ('T cell', 'the nature of', 'data science').
+# Journal header lines that contain them also carry volume,
+# page, or year numbers, and the numeric checks in
+# looks_like_journal_header catch those lines.
+JOURNAL_WORDS = [
+
+    'plos',
+    'elsevier',
+    'springer',
+    'wiley',
+    'frontiers',
+    'mdpi',
+    'bentham'
 ]
 
 
@@ -493,9 +581,14 @@ def looks_like_journal_header(text):
 
     lower = text.lower().strip()
 
-    for term in JOURNAL_TERMS:
+    for term in JOURNAL_PHRASES:
 
         if term in lower:
+            return True
+
+    for term in JOURNAL_WORDS:
+
+        if re.search(rf'\b{re.escape(term)}\b', lower):
             return True
 
     if re.search(
@@ -740,9 +833,7 @@ SCIENTIFIC_TERMS = {
     'variants',
     'genetic',
     'genetics',
-    'expression',
     'cultivation',
-    'characterization',
     'activity',
     'binding',
     'structure',
@@ -755,8 +846,6 @@ SCIENTIFIC_TERMS = {
     'synthetic',
     'metabolite',
     'metabolites',
-    'biosynthesis',
-    'biological',
     'molecular',
     'cellular',
     'organism',
@@ -871,6 +960,18 @@ def looks_like_title(text):
     if '@' in text:
         return False
 
+    if re.match(
+        r'^\d+\b',
+        text
+    ):
+        remainder = text.split(
+            None,
+            1
+        )
+
+        if len(remainder) == 1 or len(remainder[1].split()) < 3:
+            return False
+
     # --------------------------------------------------------
     # Reject DOI-like text.
     # --------------------------------------------------------
@@ -931,7 +1032,18 @@ def looks_like_title(text):
             r'\bbetween\b',
             r'\bunder\b',
             r'\bwithout\b',
-            r':'
+            r':',
+            # Verb-structured titles ('X reveals Y',
+            # 'Gene drives Z') carry no preposition, so the
+            # preposition list above scores them zero.
+            r'\b(reveals?|uncovers?|identifies|drives?|'
+            r'regulates?|controls?|mediates?|shapes?|'
+            r'enables?|improves?|requires?|defines?|'
+            r'links?|governs?|promotes?|suppresses?|'
+            r'inhibits?|activates?|targets?|determines?|'
+            r'maps?|predicts?|explains?|limits?|'
+            r'facilitates?|orchestrates?|impairs?|'
+            r'protects?|induces?|shapes?)\b'
         ]
 
         structure_hits = sum(
@@ -1051,10 +1163,44 @@ def compatible_title_lines(first, second):
 
     if size1 and size2:
 
-        if abs(size1 - size2) > TITLE_FONT_SIZE_TOLERANCE:
+        # Tolerance grows with font size. Large print lines can
+        # differ by a point or two and still be one title (a
+        # 22pt line over a 20pt line), while body text must
+        # stay within the base tolerance.
+        tolerance = max(
+            TITLE_FONT_SIZE_TOLERANCE,
+            0.12 * max(size1, size2)
+        )
+
+        if abs(size1 - size2) > tolerance:
             return False
 
     return True
+
+
+def strong_title_font(line):
+
+    size = line.get('font_size')
+
+    return bool(
+        size
+        and size >= STRONG_TITLE_FONT_SIZE
+    )
+
+
+def line_title_score(line, index):
+
+    score = title_score(
+        line['text'],
+        index,
+        line.get('font_size'),
+        line.get('max_font_size')
+    )
+
+    if score <= -999 and strong_title_font(line):
+        score = 0
+
+    return score
 
 
 def extract_title(lines):
@@ -1114,102 +1260,120 @@ def extract_title(lines):
         len(lines) - 1
     )
 
-    for i in range(
-        limit
-    ):
+    for start in range(limit):
 
-        first = lines[i]
-        second = lines[i + 1]
+        first = lines[start]
 
-        if not compatible_title_lines(
+        first_ok = looks_like_title(
+            first['text']
+        )
+
+        # A chain starts on a normal title line, or on a large
+        # print line. Titles are often printed large, and their
+        # first line alone can be a fragment ('Single-cell
+        # profiling reveals pathogenic').
+        if not first_ok and not strong_title_font(first):
+            continue
+
+        # Long chains only start on large print. Small print text
+        # that looks like a title can still form a pair, as
+        # before. This keeps abstract sentences from chaining
+        # into a fake multi-line title.
+        if strong_title_font(first):
+            chain_end = start + MAX_TITLE_LINES
+        else:
+            chain_end = start + 2
+
+        running_score = line_title_score(
             first,
-            second
-        ):
-            continue
-
-        first_text = first['text']
-        second_text = second['text']
-
-        if not looks_like_title(
-            first_text
-        ):
-            continue
-
-        if not looks_like_title(
-            second_text
-        ):
-            continue
-
-        combined = (
-            first_text
-            + ' '
-            + second_text
+            start
         )
 
-        if not looks_like_title(
-            combined
-        ):
-            continue
+        combined = first['text']
 
-        score1 = title_score(
-            first_text,
-            i,
-            first.get('font_size'),
-            first.get('max_font_size')
-        )
-
-        score2 = title_score(
-            second_text,
-            i + 1,
-            second.get('font_size'),
-            second.get('max_font_size')
-        )
-
-        if (
-            score1 <= -999
-            or score2 <= -999
-        ):
-            continue
-
-        combined_score = (
-            score1
-            + score2
-            + 5
-        )
-
-        # Strong bonus for matching font sizes.
-        if (
-            first.get('font_size')
-            and second.get('font_size')
+        for j in range(
+            start + 1,
+            min(chain_end, len(lines))
         ):
 
-            size_difference = abs(
-                first['font_size']
-                - second['font_size']
+            second = lines[j]
+
+            if not compatible_title_lines(
+                lines[j - 1],
+                second
+            ):
+                break
+
+            # Continuation lines follow the same rule as start
+            # lines: title-like text, or large print. This keeps
+            # body text (small font) out of the chain.
+            if not (
+                looks_like_title(second['text'])
+                or strong_title_font(second)
+            ):
+                break
+
+            candidate_text = (
+                combined
+                + ' '
+                + second['text']
             )
 
-            if size_difference <= 0.5:
-                combined_score += 4
+            if not looks_like_title(
+                candidate_text
+            ):
+                break
 
-            elif size_difference <= 1.0:
-                combined_score += 2
-
-        candidates.append({
-
-            'text': combined,
-
-            'score': combined_score,
-
-            'index': i,
-
-            'top': first['top'],
-
-            'bottom': second['bottom'],
-
-            'font_size': first.get(
-                'font_size'
+            score_second = line_title_score(
+                second,
+                j
             )
-        })
+
+            if score_second <= -999:
+                break
+
+            combined = candidate_text
+            running_score += score_second
+
+            combined_score = (
+                running_score
+                + 5 * (j - start)
+            )
+
+            # Strong bonus for matching font sizes.
+            if (
+                first.get('font_size')
+                and second.get('font_size')
+            ):
+
+                size_difference = abs(
+                    first['font_size']
+                    - second['font_size']
+                )
+
+                if size_difference <= 0.5:
+                    combined_score += 4
+
+                elif size_difference <= 1.0:
+                    combined_score += 2
+
+            candidates.append({
+
+                'text': combined,
+
+                'score': combined_score,
+
+                'index': start,
+                'end_index': j,
+
+                'top': first['top'],
+
+                'bottom': second['bottom'],
+
+                'font_size': first.get(
+                    'font_size'
+                )
+            })
 
     if not candidates:
         return None
@@ -1260,6 +1424,16 @@ def clean_author_text(text):
         flags=re.IGNORECASE
     )
 
+    # 'et al.' / 'et al' is a truncation marker, not a surname.
+    # Left in place, format_author() reads it as the last author
+    # and produces '(al. 2020) ...' filenames.
+    text = re.sub(
+        r'[,\s]*\bet\s+al\.?\b\.?[,\s]*',
+        ' ',
+        text,
+        flags=re.IGNORECASE
+    )
+
     text = re.sub(
         r'[⁰¹²³⁴⁵⁶⁷⁸⁹]+',
         '',
@@ -1304,6 +1478,96 @@ NAME_PARTICLES = {
     'le'
 }
 
+# Lowercase or title-case function words that mark title-case
+# prose. Their presence means the text is a title, not a person
+# name, even when every word is capitalized.
+TITLE_FUNCTION_WORDS = {
+
+    'a',
+    'an',
+    'the',
+    'of',
+    'in',
+    'on',
+    'at',
+    'to',
+    'for',
+    'from',
+    'by',
+    'with',
+    'without',
+    'and',
+    'or',
+    'but',
+    'nor',
+    'via',
+    'through',
+    'between',
+    'under',
+    'over',
+    'into',
+    'onto',
+    'within',
+    'across',
+    'during',
+    'after',
+    'before',
+    'against',
+    'among',
+    'toward',
+    'towards',
+    'upon',
+    'per',
+    'than',
+    'that',
+    'which',
+    'when',
+    'where',
+    'while',
+    'is',
+    'are',
+    'was',
+    'were',
+    'be',
+    'been',
+    'not',
+    'no',
+    'as',
+    'its',
+    'it',
+    'their',
+    'our',
+    'this',
+    'these',
+    'those',
+    'can',
+    'may',
+    'does',
+    'do',
+    'reveals',
+    'reveal',
+    'mediates',
+    'regulates',
+    'drives',
+    'shapes',
+    'enables',
+    'improves',
+    'requires',
+    'controls',
+    'defines',
+    'links',
+    'protein',
+    'gene',
+    'cell',
+    'cells',
+    'yeast',
+    'human',
+    'data',
+    'analysis',
+    'design',
+    'engineering',
+}
+
 
 def is_initial(token):
 
@@ -1311,9 +1575,15 @@ def is_initial(token):
         '.,;:()[]{}'
     )
 
+    # Concatenated initials ('J', 'AB', 'J.P.'), or a digraph
+    # initial ('Ch.', 'Ph.', 'Th.'). Note strip() above already
+    # removed the trailing period. The digraph first letter is a
+    # closed set so two-letter English words ('In', 'Of', 'At')
+    # and longer words ('Cha', 'Smith') stay words.
     return bool(
         re.fullmatch(
-            r'[A-Z]\.?',
+            r'(?:[A-ZÁÉÍÓÚÀ-ÖØ-Þ]\.?){1,3}'
+            r'|[CPTSGKRW]h?',
             token
         )
     )
@@ -1386,6 +1656,39 @@ def looks_like_single_person(text):
 
     if len(words) > 6:
         return False
+
+    if words and words[0][0].isdigit():
+        return False
+
+    # A person name is all capitalized (or a lowercase particle).
+    # A lowercase function word ('of', 'in', 'for', ...) means this
+    # is title-case prose, not a name. Without this, title-case
+    # titles such as 'Engineering of Metabolic Pathways in Yeast'
+    # parse as a single person and get rejected as titles.
+    for word in words:
+
+        stripped = word.strip(
+            '.,;:()[]{}"\'`'
+        )
+
+        if not stripped or not stripped[0].isalpha():
+            continue
+
+        lowered = stripped.lower()
+
+        # Initials ('A.', 'J.P.') belong to names, never to
+        # title prose, even though 'a' is also a function word.
+        if is_initial(stripped):
+            continue
+
+        if lowered in NAME_PARTICLES:
+            continue
+
+        if lowered in TITLE_FUNCTION_WORDS:
+            return False
+
+        if stripped[0].islower():
+            return False
 
     if name_word_count(text) < 2:
         return False
@@ -1581,6 +1884,9 @@ def extract_author_block(
     title_index = title['index']
     title_bottom = title['bottom']
 
+    if title.get('end_index') is not None:
+        title_index = title['end_index']
+
     candidates = []
 
     search_end = min(
@@ -1665,8 +1971,12 @@ def extract_doi(text):
     if not text:
         return None
 
+    # Greedy over DOI characters, then back off to the last
+    # character that can legitimately end a DOI. A DOI may end in
+    # ')' (e.g. 10.1577/1551-5028(2007)); \b cannot match after
+    # ')', so trailing punctuation is handled by the rstrip below.
     match = re.search(
-        r'\b10\.\d{4,9}/[-._;()/:\w]+\b',
+        r'\b10\.\d{4,9}/[-._;()/:\w]+',
         text,
         re.IGNORECASE
     )
@@ -1677,7 +1987,7 @@ def extract_doi(text):
     doi = match.group(0)
 
     return doi.rstrip(
-        '.,;)'
+        '.,;'
     )
 
 
@@ -1711,6 +2021,73 @@ def fetch_crossref(doi):
         return data.get(
             'message'
         )
+
+    except Exception:
+
+        return None
+
+
+def fetch_crossref_by_title(title):
+
+    """Find a CrossRef record with a bibliographic title search.
+
+    Used when the DOI is missing or broken, which happens when
+    publishers interleave the DOI footer with body text.
+    """
+
+    if not title:
+        return None
+
+    url = 'https://api.crossref.org/works'
+
+    try:
+
+        response = requests.get(
+            url,
+            params={
+                'query.bibliographic': title,
+                'rows': '3'
+            },
+            headers={
+                'Accept': 'application/json',
+                'User-Agent':
+                    'PDF-Renamer/1.0'
+            },
+            timeout=10
+        )
+
+        if response.status_code != 200:
+            return None
+
+        items = (
+            response.json()
+            .get('message', {})
+            .get('items', [])
+        )
+
+        best = None
+        best_similarity = 0.0
+
+        for item in items:
+
+            titles = item.get('title', [])
+
+            if not titles:
+                continue
+
+            ratio = similarity(
+                title,
+                titles[0]
+            )
+
+            if ratio > best_similarity:
+                best_similarity = ratio
+                best = item
+
+        if best_similarity < CROSSREF_TITLE_SIMILARITY:
+            return None
+
+        return best
 
     except Exception:
 
@@ -1863,6 +2240,17 @@ def last_name(author):
 
     if len(parts) >= 2:
 
+        # Surname-first ordering ('Smith J. A.') ends in initials.
+        # The surname is the leading capitalized token.
+        if all(
+            is_initial(p)
+            for p in parts[1:]
+        ):
+            return parts[0]
+
+        # Prefix a single particle, matching the established
+        # convention: 'de la Cruz' -> 'la Cruz',
+        # 'van der Berg' -> 'van der Berg'.
         if parts[-2].lower() in NAME_PARTICLES:
 
             return (
@@ -1893,15 +2281,15 @@ def author_agreement(
         return 0
 
     local_names = [
-        last_name(a).lower()
+        surname.lower()
         for a in local_authors
-        if last_name(a)
+        if (surname := last_name(a))
     ]
 
     cross_names = [
-        last_name(a).lower()
+        surname.lower()
         for a in crossref_list
-        if last_name(a)
+        if (surname := last_name(a))
     ]
 
     if not local_names:
@@ -2028,7 +2416,7 @@ def format_author(author_text):
         )
 
     return (
-        f"{surnames[0]} et al"
+        f"{surnames[0]} et al."
     )
 
 
@@ -2044,23 +2432,6 @@ def title_is_credible(title):
     if not looks_like_title(
         title
     ):
-        return False
-
-    # No standalone numerical content.
-    if re.search(
-        r'(^|\s)\d+(\s|$)',
-        title
-    ):
-        return False
-
-    # Never allow licensing/header text.
-    if is_biorxiv_header_or_license(
-        title
-    ):
-        return False
-
-    # Never allow keyword blocks.
-    if is_keyword_line(title):
         return False
 
     return True
@@ -2138,11 +2509,23 @@ def choose_title(
 
         if local_similarity >= CROSSREF_TITLE_SIMILARITY:
 
-            # CrossRef provides a clean canonical title.
-            return crossref_title_value
+            # PDF layout often drops or spaces out marker signs
+            # ('CD8+GZMK+' -> 'CD8 GZMK', or 'K+CD8+' -> 'K + CD8 +').
+            # normalize_text() strips '+' and spaces, so such a
+            # local title scores ~1.0 and would beat the canonical
+            # record. When the two differ only by that
+            # punctuation, CrossRef is the better filename.
+            if differs_only_by_marker_punctuation(
+                local_title,
+                crossref_title_value
+            ):
 
-        # Local title differs substantially.
-        # CrossRef is preferred for normal publications.
+                return crossref_title_value
+
+            return local_title
+
+        # Local title differs substantially. The local extraction
+        # lost to CrossRef's canonical record.
         return crossref_title_value
 
     # --------------------------------------------------------
@@ -2362,13 +2745,44 @@ def print_author_diagnostics(
 # MAIN PROCESSING
 # ============================================================
 
-def process_pdfs():
+def collect_pdf_files(args):
+    """Resolve command-line arguments into a list of PDF files.
 
-    pdf_files = [
-        f
-        for f in os.listdir('.')
-        if f.lower().endswith('.pdf')
-    ]
+    Accepts explicit filenames (typically shell-expanded globs such
+    as `pdf_renamer *.pdf`), unexpanded glob patterns, or nothing at
+    all (in which case every PDF in the current folder is selected).
+    """
+
+    files = []
+
+    for arg in args:
+
+        if any(c in arg for c in '*?['):
+            files.extend(glob.glob(arg))
+        else:
+            files.append(arg)
+
+    if not files:
+        files = glob.glob('*.pdf')
+
+    # Deduplicate, keep order, keep PDFs only.
+    seen = set()
+    pdf_files = []
+
+    for f in files:
+
+        normalized = os.path.normpath(
+            f
+        )
+
+        if normalized not in seen and os.path.splitext(normalized)[1].lower() in PDF_EXTENSIONS:
+            seen.add(normalized)
+            pdf_files.append(normalized)
+
+    return pdf_files
+
+
+def process_pdfs(pdf_files):
 
     if not pdf_files:
 
@@ -2409,7 +2823,7 @@ def process_pdfs():
         # FIRST PAGE
         # ----------------------------------------------------
 
-        words, page = extract_first_page(
+        words, _ = extract_first_page(
             filename
         )
 
@@ -2472,56 +2886,6 @@ def process_pdfs():
             )
 
         # ----------------------------------------------------
-        # CROSSREF
-        # ----------------------------------------------------
-
-        crossref_data = None
-
-        if doi:
-
-            crossref_data = fetch_crossref(
-                doi
-            )
-
-            if crossref_data:
-
-                print(
-                    "  DOI VALIDATION: PASSED"
-                )
-
-            else:
-
-                print(
-                    "  DOI VALIDATION: FAILED"
-                )
-
-        # ----------------------------------------------------
-        # CROSSREF DATA
-        # ----------------------------------------------------
-
-        cr_title = crossref_title(
-            crossref_data
-        )
-
-        cr_authors = crossref_authors(
-            crossref_data
-        )
-
-        cr_year = crossref_year(
-            crossref_data
-        )
-
-        if cr_title:
-
-            print(
-                f"\n  CROSSREF TITLE:"
-            )
-
-            print(
-                f"    {cr_title}"
-            )
-
-        # ----------------------------------------------------
         # LOCAL TITLE
         # ----------------------------------------------------
 
@@ -2558,6 +2922,88 @@ def process_pdfs():
 
             print(
                 "\n  LOCAL TITLE: NONE"
+            )
+
+        # ----------------------------------------------------
+        # CROSSREF
+        # ----------------------------------------------------
+
+        crossref_data = None
+
+        if doi:
+
+            crossref_data = fetch_crossref(
+                doi
+            )
+
+            if crossref_data:
+
+                print(
+                    "  DOI VALIDATION: PASSED"
+                )
+
+            else:
+
+                print(
+                    "  DOI VALIDATION: FAILED"
+                )
+
+        # ----------------------------------------------------
+        # CROSSREF TITLE SEARCH
+        #
+        # Some publishers interleave the DOI footer with body
+        # text, so DOI lookup fails. A bibliographic search on
+        # the local title recovers the record. Skipped for
+        # bioRxiv preprints, because the search can return the
+        # published paper and overwrite preprint information.
+        # ----------------------------------------------------
+
+        if (
+            crossref_data is None
+            and local_title
+            and not biorxiv
+        ):
+
+            crossref_data = fetch_crossref_by_title(
+                local_title
+            )
+
+            if crossref_data:
+
+                print(
+                    "  CROSSREF TITLE SEARCH: MATCHED"
+                )
+
+            else:
+
+                print(
+                    "  CROSSREF TITLE SEARCH: NO MATCH"
+                )
+
+        # ----------------------------------------------------
+        # CROSSREF DATA
+        # ----------------------------------------------------
+
+        cr_title = crossref_title(
+            crossref_data
+        )
+
+        cr_authors = crossref_authors(
+            crossref_data
+        )
+
+        cr_year = crossref_year(
+            crossref_data
+        )
+
+        if cr_title:
+
+            print(
+                "\n  CROSSREF TITLE:"
+            )
+
+            print(
+                f"    {cr_title}"
             )
 
         # ----------------------------------------------------
@@ -2657,6 +3103,26 @@ def process_pdfs():
         )
 
         # ----------------------------------------------------
+        # AUTHOR FALLBACK
+        #
+        # A scientific paper always has authors. 'Unknown'
+        # means extraction failed, and the filename would be
+        # built on bad data.
+        # ----------------------------------------------------
+
+        if formatted_author == "Unknown":
+
+            print(
+                "\n  ⚠️ No credible author found."
+            )
+
+            print(
+                "  ⚠️ File will NOT be renamed."
+            )
+
+            continue
+
+        # ----------------------------------------------------
         # YEAR
         # ----------------------------------------------------
 
@@ -2692,6 +3158,10 @@ def process_pdfs():
             final_title
         )
 
+        final_title = truncate_title(
+            final_title
+        )
+
        
         # ----------------------------------------------------
         # YEAR FALLBACK
@@ -2721,6 +3191,21 @@ def process_pdfs():
         )
 
         new_name = clean_filename(
+            new_name
+        )
+
+        # Keep renamed files next to their source. A bare name
+        # would land in the terminal's current folder when the
+        # script runs from somewhere else.
+        new_name = os.path.join(
+            os.path.dirname(filename),
+            new_name
+        )
+
+        source_path = os.path.normpath(
+            filename
+        )
+        target_path = os.path.normpath(
             new_name
         )
 
@@ -2761,7 +3246,7 @@ def process_pdfs():
         # RENAME
         # ----------------------------------------------------
 
-        if new_name == filename:
+        if source_path == target_path:
 
             print(
                 "  ℹ️ Filename already matches."
@@ -2771,19 +3256,28 @@ def process_pdfs():
 
         try:
 
-            os.rename(
+            new_name = unique_target_path(
                 filename,
                 new_name
             )
 
+            if new_name is None:
+
+                print(
+                    "  ⚠️ Could not find a free "
+                    "filename. Skipped."
+                )
+
+                continue
+
+            if source_path != os.path.normpath(new_name):
+                os.replace(
+                    filename,
+                    new_name
+                )
+
             print(
                 "  ✅ Renamed successfully."
-            )
-
-        except FileExistsError:
-
-            print(
-                "  ⚠️ Target file already exists."
             )
 
         except Exception as e:
@@ -2793,10 +3287,62 @@ def process_pdfs():
             )
 
 
+def unique_target_path(source, target):
+
+    if os.path.normpath(source) == os.path.normpath(target):
+        return target
+
+    base, ext = os.path.splitext(target)
+
+    candidates = [target]
+    candidates.extend(
+        f"{base} ({suffix}){ext}"
+        for suffix in range(
+            1,
+            MAX_NAME_SUFFIX + 1
+        )
+    )
+
+    for candidate in candidates:
+
+        # Reserve the name atomically so concurrent runs cannot
+        # both claim the same free slot.
+        try:
+
+            handle = os.open(
+                candidate,
+                os.O_CREAT
+                | os.O_EXCL
+                | os.O_WRONLY
+            )
+
+            os.close(handle)
+            os.unlink(candidate)
+
+        except FileExistsError:
+            continue
+
+        except OSError:
+            continue
+
+        return candidate
+
+    return None
+
+
 # ============================================================
 # RUN
 # ============================================================
 
+def main():
+
+    process_pdfs(
+        collect_pdf_files(
+            sys.argv[1:]
+        )
+    )
+
+
 if __name__ == "__main__":
 
-    process_pdfs()
+    main()
