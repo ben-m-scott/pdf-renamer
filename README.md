@@ -80,14 +80,6 @@ The script will:
 - Automatically rename files
 - Print detailed diagnostics for every processed document
 
-## Version v260830
-
-- Removed review-article detection and filename suffixing.
-- Expanded journal and publisher detection terms.
-- Improved title-selection reliability.
-- Retained CrossRef-assisted metadata validation.
-- Retained specialized bioRxiv preprint handling.
-
 ## Requirements
 
 - Python 3.x
@@ -107,7 +99,28 @@ bioRxiv preprints are detected using DOI patterns and preprint-specific text. Pu
 
 ### Limitations
 
-- Requires text-based PDFs (image-only scans are not supported).
+- Requires text-based PDFs (image-only scans are not supported).\
+
+## Versions
+v260903
+- Fixed spatial line-number cropping issue that interfered with metadata extraction from some preprints.
+- Added isolated line-number detection and filtering during PDF text processing.
+- Improved title extraction with better scoring, multiline title assembly, and abstract detection.
+- Improved author extraction and parsing of complex author lists.
+- Added filename-based metadata recovery when PDF metadata is incomplete.
+- Added title cleanup/normalization (ligatures, special characters, hyphenation fixes, footnote markers).
+- Enhanced CrossRef integration with retries, timeouts, DOI extraction, and title-based lookups.
+- Improved title matching confidence and metadata validation logic.
+- Added more robust publication year selection/ranking.
+- Updated author formatting to produce "Author", "Author and Coauthor", or "Author et al" output.
+- Expanded configuration options for search depth, filename limits, confidence thresholds, and API behavior.
+
+v260830
+- Removed review-article detection and filename suffixing.
+- Expanded journal and publisher detection terms.
+- Improved title-selection reliability.
+- Retained CrossRef-assisted metadata validation.
+- Retained specialized bioRxiv preprint handling.
 - CrossRef validation requires an internet connection.
 - PDFs without a detectable title, author, or year may be skipped.
 - Some highly unusual publisher layouts may still require manual review.
