@@ -1,4 +1,4 @@
-<img width="3026" height="1221" alt="Picture1" src="https://github.com/user-attachments/assets/97cb1d22-6956-4ada-850c-7fc42878f65e" />
+<img width="3026" height="1277" alt="Picture1" src="https://github.com/user-attachments/assets/3608233d-45d0-4984-b099-82b867348af6" />
 
 # PDF Renamer
 
