@@ -1,4 +1,4 @@
-<img width="3026" height="1277" alt="Picture1" src="https://github.com/user-attachments/assets/3608233d-45d0-4984-b099-82b867348af6" />
+<img width="2799" height="1259" alt="Picture1" src="https://github.com/user-attachments/assets/e28ce9c9-6743-4a1d-9a94-889f348ebdc3" />
 
 # PDF Renamer
 
@@ -102,6 +102,14 @@ bioRxiv preprints are detected using DOI patterns and preprint-specific text. Pu
 - Requires text-based PDFs (image-only scans are not supported).\
 
 ## Versions
+v260904
+- Added Elsevier PII (Publisher Item Identifier) detection to extract and resolve DOIs from filenames and text.
+- Replaced standard title search with a multi-strategy iterative detection engine using visual font hierarchy.
+- Preserved digits in title cleaning to prevent corrupting scientific names, model numbers, DOIs, and PII strings.
+- Added HTML/XML markup tag stripping to title text normalization.
+- Introduced ARTICLE_TYPE_TERMS filtering to exclude standard publication headers (e.g., "Research Article", "Technical Note").
+- Expanded vertical search limits (MAX_TITLE_TOP) and enabled multi-line title block matching up to 4 contiguous lines.
+
 v260903
 - Fixed spatial line-number cropping issue that interfered with metadata extraction from some preprints.
 - Added isolated line-number detection and filtering during PDF text processing.
