@@ -76,6 +76,9 @@ def clean_filename(text):
     if not text:
         return ""
     text = re.sub(r'[<>:"/\\|?*]', '', text)
+    # Control characters (0x00-0x1F) are rejected by Windows filesystems;
+    # leaving them in makes the later os.rename() fail.
+    text = re.sub(r'[\x00-\x1f]', '', text)
     text = re.sub(r'\s+', ' ', text)
     return text.strip().rstrip('.')
 
